@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="he">
+<head>
+    <meta charset="UTF-8">
+    <title>ID System</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+    <style>
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #fff; font-family: sans-serif; }
+        #ui {
+            position: fixed; inset: 0; background: #fff; z-index: 1000;
+            display: flex; flex-direction: column; padding: 20px; gap: 10px; overflow-y: auto;
+        }
+        .pre-win { 
+            position: relative; width: 160px; height: 210px; 
+            background: #222; margin: 0 auto; overflow: hidden; border: 2px solid #4b374e;
+        }
+        #adj-img { position: absolute; cursor: move; transform-origin: top left; }
+        input { padding: 15px; border: 1px solid #ccc; border-radius: 8px; width: 100%; box-sizing: border-box; font-size: 16px; }
+        button { padding: 20px; background: #4b374e; color: #fff; border: none; border-radius: 12px; font-weight: bold; cursor: pointer; font-size: 16px; }
+        canvas { 
+            position: fixed; inset: 0; width: 100vw; height: 100dvh; 
+            object-fit: cover; z-index: -1; pointer-events: none;
+        }
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+
+    <div id="ui">
+        <input type="file" id="f-up" accept="image/*">
+        <div class="pre-win"><img id="adj-img" src=""></div>
+        <input type="range" id="z-range" min="0.1" max="4" step="0.01" value="1">
+        
+        <input type="text" id="in-h" placeholder="שם מלא (עברית)" dir="rtl">
+        <input type="text" id="in-e" placeholder="Full Name (English)">
+        <input type="number" id="in-i" placeholder="מספר זהות">
+        
+        <button id="go">LAUNCH CARD</button>
+        <button id="share" style="background:#2e7d32">COPY URL</button>
+    </div>
+
+    <canvas id="c"></canvas>
+
+<script>
+    const cvs = document.getElementById('c');
+    const ctx = cvs.getContext('2d', { alpha: false });
+    const ui = document.getElementById('ui');
+    const adjImg = document.getElementById('adj-img');
+    const zRange = document.getElementById('z-range');
+    
+    let tImg = new Image(), fImg = null, boxes = [];
+    let pX = 0, pY = 0, pS = 1;
+
+    if (screen.orientation && screen.orientation.lock) {
+        screen.orientation.lock('portrait').catch(() => {});
+    }
+
+    tImg.src = 'img.png'; 
+    tImg.onload = scan;
+    
+    // (FIX) Create a reusable function to request fullscreen
+    function enterFullscreen() {
+        // This function will work on Android/Desktop but will be safely ignored on iPhone.
+        if (document.documentElement.requestFullscreen) {
+            document.documentElement.requestFullscreen().catch(err => {
+                console.log(`Fullscreen request was ignored or failed: ${err.message}`);
+            });
+        }
+    }
+
+    window.onload = () => {
+        const p = new URLSearchParams(window.location.search);
+        const data = JSON.parse(localStorage.getItem('id_final_v14') || '{}');
+        
+        document.getElementById('in-h').value = p.get('h') || data.h || '';
+        document.getElementById('in-e').value = p.get('e') || data.e || '';
+        document.getElementById('in-i').value = p.get('i') || data.i || '';
+        
+        const imgRaw = p.get('img');
+        let photoSrc = imgRaw || data.img;
+
+        if (photoSrc) {
+            fImg = new Image();
+            fImg.crossOrigin = "anonymous";
+            fImg.onload = () => { 
+                adjImg.src = fImg.src; 
+                adjImg.style.display = 'block';
+                if(p.has('h')) {
+                    ui.classList.add('hidden');
+                    cvs.style.zIndex = '2000';
+                    cvs.style.pointerEvents = 'auto';
+                    render();
+                    // (FIX) Call the fullscreen function when loading from a URL
+                    enterFullscreen();
+                }
+            };
+            fImg.onerror = () => {
+                console.error('Failed to load image from URL');
+                if (data.img) { fImg.src = data.img; }
+            };
+            fImg.src = photoSrc;
+            pX = parseFloat(p.get('px')) || data.px || 0;
+            pY = parseFloat(p.get('py')) || data.py || 0;
+            pS = parseFloat(p.get('ps')) || data.ps || 1;
+            adjImg.style.transform = `translate(${pX}px, ${pY}px) scale(${pS})`;
+            zRange.value = pS;
+        }
+    };
+
+    document.getElementById('f-up').onchange = e => {
+        const r = new FileReader();
+        r.onload = ev => {
+            const temp = new Image();
+            temp.onload = () => {
+                const c = document.createElement('canvas');
+                const m = 1000; 
+                let w = temp.width, h = temp.height;
+                if(w > h){ h=(m/w)*h; w=m; } else { w=(m/h)*w; h=m; }
+                c.width = w; c.height = h;
+                c.getContext('2d').drawImage(temp, 0, 0, w, h);
+                fImg = new Image(); fImg.src = c.toDataURL('image/webp', 0.92);
+                adjImg.src = fImg.src;
+            };
+            temp.src = ev.target.result;
+        };
+        r.readAsDataURL(e.target.files[0]);
+    };
+
+    let drag = false, sx, sy;
+
+    function handleDragStart(e) {
+        e.preventDefault();
+        drag = true;
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+        sx = clientX - pX;
+        sy = clientY - pY;
+        window.addEventListener('mousemove', handleDragMove);
+        window.addEventListener('touchmove', handleDragMove, { passive: false });
+        window.addEventListener('mouseup', handleDragEnd);
+        window.addEventListener('touchend', handleDragEnd);
+    }
+
+    function handleDragMove(e) {
+        if (!drag) return;
+        e.preventDefault(); 
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+        pX = clientX - sx;
+        pY = clientY - sy;
+        updateP();
+    }
+
+    function handleDragEnd() {
+        drag = false;
+        window.removeEventListener('mousemove', handleDragMove);
+        window.removeEventListener('touchmove', handleDragMove, { passive: false });
+        window.removeEventListener('mouseup', handleDragEnd);
+        window.removeEventListener('touchend', handleDragEnd);
+    }
+
+    adjImg.addEventListener('mousedown', handleDragStart);
+    adjImg.addEventListener('touchstart', handleDragStart);
+
+    zRange.oninput = e => { pS = e.target.value; updateP(); };
+    function updateP() { adjImg.style.transform = `translate(${pX}px, ${pY}px) scale(${pS})`; }
+
+    function scan() { /* ... unchanged ... */ }
+
+    document.getElementById('share').onclick = () => { /* ... unchanged ... */ };
+
+    document.getElementById('go').onclick = () => {
+        localStorage.setItem('id_final_v14', JSON.stringify({
+            h: document.getElementById('in-h').value, e: document.getElementById('in-e').value,
+            i: document.getElementById('in-i').value, px: pX, py: pY, ps: pS, img: fImg ? fImg.src : null
+        }));
+        ui.classList.add('hidden');
+        
+        cvs.style.zIndex = '2000';
+        cvs.style.pointerEvents = 'auto';
+
+        // (FIX) Call the fullscreen function when the button is clicked
+        enterFullscreen();
+        
+        render();
+    };
+
+    // This remains as a backup for devices that exit fullscreen
+    cvs.onclick = () => { if(ui.classList.contains('hidden') && !document.fullscreenElement) enterFullscreen(); };
+
+    function render() { draw(); setTimeout(() => requestAnimationFrame(render), 1000); }
+
+    function fitText(txt, x, y, maxW, maxH, bold, align, color, fontName = 'sans-serif') { /* ... unchanged ... */ }
+    function draw() { /* ... unchanged ... */ }
+
+    // Make sure the unchanged functions are still here
+    function scan() {
+        const tmp = document.createElement('canvas');
+        tmp.width = tImg.width; tmp.height = tImg.height;
+        const tctx = tmp.getContext('2d');
+        tctx.drawImage(tImg, 0, 0);
+        const d = tctx.getImageData(0, 0, tmp.width, tmp.height).data;
+        let found = []; const vis = new Uint8Array(tmp.width * tmp.height);
+        for (let y = 0; y < tmp.height; y += 4) {
+            for (let x = 0; x < tmp.width; x += 4) {
+                if (d[(y * tmp.width + x) * 4 + 3] < 150 && !vis[y * tmp.width + x]) {
+                    let x2 = x, y2 = y;
+                    while (x2 < tmp.width && d[(y * tmp.width + x2) * 4 + 3] < 150) x2++;
+                    while (y2 < tmp.height && d[(y2 * tmp.width + x) * 4 + 3] < 150) y2++;
+                    if (x2-x > 15) {
+                        found.push({x, y, w: x2-x, h: y2-y});
+                        for (let vy = y; vy < y2; vy += 4) for (let vx = x; vx < x2; vx += 4) vis[vy * tmp.width + vx] = 1;
+                    }
+                }
+            }
+        }
+        found.sort((a,b) => a.x - b.x);
+        boxes = [found.shift(), ...found.sort((a,b) => a.y - b.y)];
+    }
+    document.getElementById('share').onclick = () => {
+        const shareC = document.createElement('canvas');
+        shareC.width = 100; shareC.height = 100;
+        if (fImg) { shareC.getContext('2d').drawImage(fImg, 0, 0, 100, 100); }
+        const tinyBase64 = shareC.toDataURL('image/jpeg', 0.1);
+
+        const url = new URL(window.location.href);
+        url.searchParams.set('h', document.getElementById('in-h').value);
+        url.searchParams.set('e', document.getElementById('in-e').value);
+        url.searchParams.set('i', document.getElementById('in-i').value);
+        url.searchParams.set('px', pX); url.searchParams.set('py', pY); url.searchParams.set('ps', pS);
+        url.searchParams.set('img', tinyBase64);
+        
+        const finalUrl = url.toString();
+        if (finalUrl.length > 2000) {
+            alert("Warning: URL is very long. If it doesn't work, try a different photo.");
+        }
+
+        if (navigator.clipboard) navigator.clipboard.writeText(finalUrl).then(() => alert("URL Copied!"));
+        else prompt("Copy this:", finalUrl);
+    };
+    function fitText(txt, x, y, maxW, maxH, bold, align, color, fontName = 'sans-serif') {
+        let s = maxH; ctx.textAlign = align; ctx.fillStyle = color;
+        ctx.font = `${bold ? 'bold ' : ''}${s}px ${fontName}`;
+        while(ctx.measureText(txt).width > maxW && s > 8) {
+            s--; ctx.font = `${bold ? 'bold ' : ''}${s}px ${fontName}`;
+        }
+        ctx.fillText(txt, x, y);
+    }
+    function draw() {
+        const W = tImg.width, H = tImg.height;
+        if (cvs.width !== W) { cvs.width = W; cvs.height = H; }
+        ctx.fillStyle = "#fff"; 
+        ctx.fillRect(0, 0, W, H);
+        
+        const b = boxes; if (b.length < 3) return;
+        const idV = document.getElementById('in-i').value;
+
+        if(b[0]) { 
+            ctx.fillStyle = '#4b374e'; 
+            ctx.fillRect(b[0].x, b[0].y, b[0].w, b[0].h);
+        }
+        
+        if (fImg && b[0]) {
+            const r = b[0].w / 160;
+            const bleedSize = 20;
+            ctx.drawImage(fImg, 
+                b[0].x + (pX * r) - bleedSize, 
+                b[0].y + (pY * r) - bleedSize, 
+                (fImg.width * pS * r) + (bleedSize * 2), 
+                (fImg.height * pS * r) + (bleedSize * 2)
+            );
+        }
+        if(b[1]) { ctx.fillStyle='#4b374e'; ctx.fillRect(b[1].x-4, b[1].y-4, b[1].w+8, b[1].h+8); }
+        if(b[2]) { ctx.fillStyle='#4b374e'; ctx.fillRect(b[2].x-4, b[2].y-4, b[2].w+8, b[2].h+8); }
+        if(b[3]) { ctx.fillStyle='#ffffff'; ctx.fillRect(b[3].x-4, b[3].y-4, b[3].w+8, b[3].h+8); }
+        if(b[4]) { ctx.fillStyle='#ffffff'; ctx.fillRect(b[4].x-4, b[4].y-4, b[4].w+8, b[4].h+8); }
+        if(b[5]) { ctx.fillStyle='#ffffff'; ctx.fillRect(b[5].x-4, b[5].y-4, b[5].w+8, b[5].h+8); }
+
+        ctx.drawImage(tImg, 0, 0, W, H);
+
+        if (b[1]) {
+            fitText(document.getElementById('in-h').value, b[1].x + b[1].w * 0.94, b[1].y + (b[1].h * 0.22), b[1].w * 0.9, b[1].h * 0.38, true, 'right', '#fff');
+            fitText(document.getElementById('in-e').value, b[1].x + b[1].w * 0.94, b[1].y + (b[1].h * 0.58), b[1].w * 0.9, b[1].h * 0.38, true, 'right', '#fff');
+        }
+        
+        if (b[2]) {
+            fitText(idV, b[2].x + b[2].w * 0.98, b[2].y + (b[2].h * 0.50), b[2].w * 0.98, b[2].h * 0.85, true, 'right', '#fff');
+        }
+
+        if (b[3]) {
+            fitText(idV, b[3].x + b[3].w/2, b[3].y + (b[3].h * 0.55), b[3].w * 0.99, b[3].h * 1.0, false, 'center', '#3e3e3e');
+        }
+
+        if (b[4]) {
+            const time = new Date().toLocaleTimeString('en-GB', { hour12: false });
+            ctx.textBaseline = 'middle';
+            fitText(time, b[4].x + b[4].w/2, b[4].y + b[4].h/2, b[4].w * 0.95, b[4].h * 0.95, false, 'center', '#4f374f', 'system-ui, sans-serif');
+        }
+
+        if (b[5]) {
+            const now = new Date();
+            const day = String(now.getDate()).padStart(2, '0');
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const year = now.getFullYear();
+            const dateStr = `${day}/${month}/${year}`;
+            ctx.textBaseline = 'middle';
+            fitText(dateStr, b[5].x + b[5].w/2, b[5].y + b[5].h/2, b[5].w * 0.98, b[5].h * 0.98, true, 'center', '#4f374f', 'system-ui, sans-serif');
+        }
+    }
+</script>
+</body>
+</html>
