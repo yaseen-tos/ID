@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+
 <html lang="he">
 <head>
     <meta charset="UTF-8">
@@ -7,309 +8,1736 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
-    <style>
-        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #fff; font-family: sans-serif; }
-        #ui {
-            position: fixed; inset: 0; background: #fff; z-index: 1000;
-            display: flex; flex-direction: column; padding: 20px; gap: 10px; overflow-y: auto;
-        }
-        .pre-win { 
-            position: relative; width: 160px; height: 210px; 
-            background: #222; margin: 0 auto; overflow: hidden; border: 2px solid #4b374e;
-        }
-        #adj-img { position: absolute; cursor: move; transform-origin: top left; }
-        input { padding: 15px; border: 1px solid #ccc; border-radius: 8px; width: 100%; box-sizing: border-box; font-size: 16px; }
-        button { padding: 20px; background: #4b374e; color: #fff; border: none; border-radius: 12px; font-weight: bold; cursor: pointer; font-size: 16px; }
-        canvas { 
-            position: fixed; inset: 0; width: 100vw; height: 100dvh; 
-            object-fit: cover; z-index: -1; pointer-events: none;
-        }
-        .hidden { display: none !important; }
-    </style>
+```
+<style>
+    body, html {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background: #fff;
+        font-family: sans-serif;
+    }
+
+    #ui {
+        position: fixed;
+        inset: 0;
+        background: #fff;
+        z-index: 1000;
+        display: flex;
+        flex-direction: column;
+        padding: 20px;
+        gap: 10px;
+        overflow-y: auto;
+    }
+
+    .pre-win {
+        position: relative;
+        width: 160px;
+        height: 210px;
+        background: #222;
+        margin: 0 auto;
+        overflow: hidden;
+        border: 2px solid #4b374e;
+    }
+
+    #adj-img {
+        position: absolute;
+        cursor: move;
+        transform-origin: top left;
+    }
+
+    input {
+        padding: 15px;
+        border: 1px solid #ccc;
+        border-radius: 8px;
+        width: 100%;
+        box-sizing: border-box;
+        font-size: 16px;
+    }
+
+    button {
+        padding: 20px;
+        background: #4b374e;
+        color: #fff;
+        border: none;
+        border-radius: 12px;
+        font-weight: bold;
+        cursor: pointer;
+        font-size: 16px;
+    }
+
+    canvas {
+        position: fixed;
+        inset: 0;
+        width: 100vw;
+        height: 100dvh;
+        object-fit: contain;
+        background: #fff;
+        z-index: -1;
+        pointer-events: none;
+    }
+
+    .hidden {
+        display: none !important;
+    }
+</style>
+
+<base target="_blank">
+```
+
 </head>
+
 <body>
 
-    <div id="ui">
-        <input type="file" id="f-up" accept="image/*">
-        <div class="pre-win"><img id="adj-img" src=""></div>
-        <input type="range" id="z-range" min="0.1" max="4" step="0.01" value="1">
-        
-        <input type="text" id="in-h" placeholder="שם מלא (עברית)" dir="rtl">
-        <input type="text" id="in-e" placeholder="Full Name (English)">
-        <input type="number" id="in-i" placeholder="מספר זהות">
-        
-        <button id="go">LAUNCH CARD</button>
-        <button id="share" style="background:#2e7d32">COPY URL</button>
+```
+<div id="ui">
+    <input type="file" id="f-up" accept="image/*">
+
+    <div class="pre-win">
+        <img id="adj-img" src="">
     </div>
 
-    <canvas id="c"></canvas>
+    <input
+        type="range"
+        id="z-range"
+        min="0.1"
+        max="4"
+        step="0.01"
+        value="1"
+    >
+
+    <input type="text" id="in-h" placeholder="שם מלא (עברית)" dir="rtl">
+    <input type="text" id="in-e" placeholder="Full Name (English)">
+    <input type="number" id="in-i" placeholder="מספר זהות">
+
+    <input
+        type="text"
+        id="in-d"
+        placeholder="תאריך (DD/MM/YYYY) — leave empty for today"
+        dir="ltr"
+    >
+
+    <input
+        type="text"
+        id="in-t"
+        placeholder="שעה (HH:MM:SS) — leave empty for now"
+        dir="ltr"
+    >
+
+    <input
+        type="text"
+        id="in-y"
+        placeholder="שנה אנגלית (e.g. 2025-2026) — auto if empty"
+        dir="ltr"
+    >
+
+    <input
+        type="text"
+        id="in-yh"
+        placeholder="שנת לימודים בעברית (e.g. תשפ״ו) — auto if empty"
+        dir="rtl"
+    >
+
+    <button id="go">LAUNCH CARD</button>
+    <button id="share" style="background:#2e7d32">COPY URL</button>
+</div>
+
+<canvas id="c"></canvas>
+```
 
 <script>
-    const cvs = document.getElementById('c');
-    const ctx = cvs.getContext('2d', { alpha: false });
-    const ui = document.getElementById('ui');
-    const adjImg = document.getElementById('adj-img');
-    const zRange = document.getElementById('z-range');
-    
-    let tImg = new Image(), fImg = null, boxes = [];
-    let pX = 0, pY = 0, pS = 1;
+
+    // ============================================================
+    // DOM ELEMENTS
+    // ============================================================
+
+    const canvas = document.getElementById('c');
+    const context = canvas.getContext('2d', { alpha: false });
+
+    const userInterface = document.getElementById('ui');
+    const adjustmentImage = document.getElementById('adj-img');
+    const zoomRange = document.getElementById('z-range');
+
+    const fileUpload = document.getElementById('f-up');
+    const launchButton = document.getElementById('go');
+    const shareButton = document.getElementById('share');
+
+    const hebrewNameInput = document.getElementById('in-h');
+    const englishNameInput = document.getElementById('in-e');
+    const idNumberInput = document.getElementById('in-i');
+    const dateInput = document.getElementById('in-d');
+    const timeInput = document.getElementById('in-t');
+    const englishYearInput = document.getElementById('in-y');
+    const hebrewYearInput = document.getElementById('in-yh');
+
+
+    // ============================================================
+    // IMAGE / PHOTO STATE
+    // ============================================================
+
+    let templateImage = new Image();
+    let photoImage = null;
+
+    let photoX = 0;
+    let photoY = 0;
+    let photoScale = 1;
+
+
+    // ============================================================
+    // PHOTO POSITION BOXES
+    // ============================================================
+
+    // Measured from img.png.
+    // Used if automatic scanning fails.
+    const FALLBACK_BOXES = [
+        { x: 68,  y: 552,  w: 404, h: 413 }, // boxes[0] = photo
+        { x: 632, y: 600,  w: 240, h: 103 }, // boxes[1] = name
+        { x: 652, y: 972,  w: 210, h: 50  }, // boxes[2] = ID number
+        { x: 96,  y: 1008, w: 351, h: 122 }, // boxes[3] = year
+        { x: 372, y: 1576, w: 207, h: 37  }, // boxes[4] = ID under barcode
+        { x: 364, y: 1696, w: 224, h: 50  }, // boxes[5] = time
+        { x: 316, y: 1764, w: 316, h: 55  }  // boxes[6] = date
+    ];
+
+    let templateBoxes = [];
+
+
+    // ============================================================
+    // SCREEN ORIENTATION
+    // ============================================================
 
     if (screen.orientation && screen.orientation.lock) {
         screen.orientation.lock('portrait').catch(() => {});
     }
 
-    tImg.src = 'img.png'; 
-    tImg.onload = scan;
-    
-    // (FIX) Create a reusable function to request fullscreen
+
+    // ============================================================
+    // LOAD TEMPLATE IMAGE
+    // ============================================================
+
+    templateImage.src = 'img.png';
+
+    templateImage.onload = () => {
+        try {
+            scanTemplate();
+
+            if (templateBoxes.length < 7) {
+                throw new Error(
+                    'Only ' + templateBoxes.length + ' boxes found'
+                );
+            }
+
+        } catch (error) {
+            console.warn(
+                'Auto-scan failed, using built-in box positions:',
+                error
+            );
+
+            templateBoxes = FALLBACK_BOXES.map(box => ({ ...box }));
+        }
+    };
+
+    templateImage.onerror = () => {
+        alert(
+            'img.png failed to load! Keep img.png in the SAME folder as this HTML file.'
+        );
+    };
+
+
+    // ============================================================
+    // FULLSCREEN
+    // ============================================================
+
     function enterFullscreen() {
-        // This function will work on Android/Desktop but will be safely ignored on iPhone.
+        // Works on Android/Desktop.
+        // Safely ignored on iPhone where fullscreen may not be supported.
+
         if (document.documentElement.requestFullscreen) {
-            document.documentElement.requestFullscreen().catch(err => {
-                console.log(`Fullscreen request was ignored or failed: ${err.message}`);
+            document.documentElement.requestFullscreen().catch(error => {
+                console.log(
+                    `Fullscreen request was ignored or failed: ${error.message}`
+                );
             });
         }
     }
 
-    window.onload = () => {
-        const p = new URLSearchParams(window.location.search);
-        const data = JSON.parse(localStorage.getItem('id_final_v14') || '{}');
-        
-        document.getElementById('in-h').value = p.get('h') || data.h || '';
-        document.getElementById('in-e').value = p.get('e') || data.e || '';
-        document.getElementById('in-i').value = p.get('i') || data.i || '';
-        
-        const imgRaw = p.get('img');
-        let photoSrc = imgRaw || data.img;
 
-        if (photoSrc) {
-            fImg = new Image();
-            fImg.crossOrigin = "anonymous";
-            fImg.onload = () => { 
-                adjImg.src = fImg.src; 
-                adjImg.style.display = 'block';
-                if(p.has('h')) {
-                    ui.classList.add('hidden');
-                    cvs.style.zIndex = '2000';
-                    cvs.style.pointerEvents = 'auto';
+    // ============================================================
+    // LOAD SAVED / URL DATA
+    // ============================================================
+
+    window.onload = () => {
+
+        const urlParameters = new URLSearchParams(
+            window.location.search
+        );
+
+        const savedData = JSON.parse(
+            localStorage.getItem('id_final_v14') || '{}'
+        );
+
+
+        // Fill form fields
+
+        hebrewNameInput.value =
+            urlParameters.get('h') ||
+            savedData.h ||
+            'ישראל ישראלי';
+
+        englishNameInput.value =
+            urlParameters.get('e') ||
+            savedData.e ||
+            'ISRAEL ISRAELI';
+
+        idNumberInput.value =
+            urlParameters.get('i') ||
+            savedData.i ||
+            '123456789';
+
+        dateInput.value =
+            urlParameters.get('d') ||
+            savedData.d ||
+            '';
+
+        timeInput.value =
+            urlParameters.get('t') ||
+            savedData.t ||
+            '';
+
+        englishYearInput.value =
+            urlParameters.get('y') ||
+            savedData.y ||
+            '';
+
+        hebrewYearInput.value =
+            urlParameters.get('yh') ||
+            savedData.yh ||
+            '';
+
+
+        // Load photo
+
+        const urlPhotoData = urlParameters.get('img');
+        const photoSource = urlPhotoData || savedData.img;
+
+        if (photoSource) {
+
+            photoImage = new Image();
+            photoImage.crossOrigin = "anonymous";
+
+            photoImage.onload = () => {
+
+                adjustmentImage.src = photoImage.src;
+                adjustmentImage.style.display = 'block';
+
+                if (urlParameters.has('h')) {
+
+                    userInterface.classList.add('hidden');
+
+                    canvas.style.zIndex = '2000';
+                    canvas.style.pointerEvents = 'auto';
+
                     render();
-                    // (FIX) Call the fullscreen function when loading from a URL
+
                     enterFullscreen();
                 }
             };
-            fImg.onerror = () => {
-                console.error('Failed to load image from URL');
-                if (data.img) { fImg.src = data.img; }
+
+
+            photoImage.onerror = () => {
+
+                console.error(
+                    'Failed to load image from URL'
+                );
+
+                if (savedData.img) {
+                    photoImage.src = savedData.img;
+                }
             };
-            fImg.src = photoSrc;
-            pX = parseFloat(p.get('px')) || data.px || 0;
-            pY = parseFloat(p.get('py')) || data.py || 0;
-            pS = parseFloat(p.get('ps')) || data.ps || 1;
-            adjImg.style.transform = `translate(${pX}px, ${pY}px) scale(${pS})`;
-            zRange.value = pS;
+
+
+            photoImage.src = photoSource;
+
+
+            photoX =
+                parseFloat(urlParameters.get('px')) ||
+                savedData.px ||
+                0;
+
+            photoY =
+                parseFloat(urlParameters.get('py')) ||
+                savedData.py ||
+                0;
+
+            photoScale =
+                parseFloat(urlParameters.get('ps')) ||
+                savedData.ps ||
+                1;
+
+
+            adjustmentImage.style.transform =
+                `translate(${photoX}px, ${photoY}px) scale(${photoScale})`;
+
+            zoomRange.value = photoScale;
         }
     };
 
-    document.getElementById('f-up').onchange = e => {
-        const r = new FileReader();
-        r.onload = ev => {
-            const temp = new Image();
-            temp.onload = () => {
-                const c = document.createElement('canvas');
-                const m = 1000; 
-                let w = temp.width, h = temp.height;
-                if(w > h){ h=(m/w)*h; w=m; } else { w=(m/h)*w; h=m; }
-                c.width = w; c.height = h;
-                c.getContext('2d').drawImage(temp, 0, 0, w, h);
-                fImg = new Image(); fImg.src = c.toDataURL('image/webp', 0.92);
-                adjImg.src = fImg.src;
+
+    // ============================================================
+    // PHOTO UPLOAD
+    // ============================================================
+
+    fileUpload.onchange = event => {
+
+        const fileReader = new FileReader();
+
+        fileReader.onload = readerEvent => {
+
+            const temporaryImage = new Image();
+
+            temporaryImage.onload = () => {
+
+                const resizedCanvas =
+                    document.createElement('canvas');
+
+                const maximumSize = 1000;
+
+                let imageWidth = temporaryImage.width;
+                let imageHeight = temporaryImage.height;
+
+
+                if (imageWidth > imageHeight) {
+
+                    imageHeight =
+                        (maximumSize / imageWidth) *
+                        imageHeight;
+
+                    imageWidth = maximumSize;
+
+                } else {
+
+                    imageWidth =
+                        (maximumSize / imageHeight) *
+                        imageWidth;
+
+                    imageHeight = maximumSize;
+                }
+
+
+                resizedCanvas.width = imageWidth;
+                resizedCanvas.height = imageHeight;
+
+
+                resizedCanvas
+                    .getContext('2d')
+                    .drawImage(
+                        temporaryImage,
+                        0,
+                        0,
+                        imageWidth,
+                        imageHeight
+                    );
+
+
+                photoImage = new Image();
+
+                photoImage.src =
+                    resizedCanvas.toDataURL(
+                        'image/webp',
+                        0.92
+                    );
+
+                adjustmentImage.src = photoImage.src;
             };
-            temp.src = ev.target.result;
+
+
+            temporaryImage.src = readerEvent.target.result;
         };
-        r.readAsDataURL(e.target.files[0]);
+
+
+        fileReader.readAsDataURL(
+            event.target.files[0]
+        );
     };
 
-    let drag = false, sx, sy;
 
-    function handleDragStart(e) {
-        e.preventDefault();
-        drag = true;
-        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-        sx = clientX - pX;
-        sy = clientY - pY;
-        window.addEventListener('mousemove', handleDragMove);
-        window.addEventListener('touchmove', handleDragMove, { passive: false });
-        window.addEventListener('mouseup', handleDragEnd);
-        window.addEventListener('touchend', handleDragEnd);
+    // ============================================================
+    // PHOTO DRAGGING
+    // ============================================================
+
+    let isDraggingPhoto = false;
+    let dragStartOffsetX;
+    let dragStartOffsetY;
+
+
+    function handleDragStart(event) {
+
+        event.preventDefault();
+
+        isDraggingPhoto = true;
+
+
+        const pointerX =
+            event.touches
+                ? event.touches[0].clientX
+                : event.clientX;
+
+        const pointerY =
+            event.touches
+                ? event.touches[0].clientY
+                : event.clientY;
+
+
+        dragStartOffsetX =
+            pointerX - photoX;
+
+        dragStartOffsetY =
+            pointerY - photoY;
+
+
+        window.addEventListener(
+            'mousemove',
+            handleDragMove
+        );
+
+        window.addEventListener(
+            'touchmove',
+            handleDragMove,
+            { passive: false }
+        );
+
+        window.addEventListener(
+            'mouseup',
+            handleDragEnd
+        );
+
+        window.addEventListener(
+            'touchend',
+            handleDragEnd
+        );
     }
 
-    function handleDragMove(e) {
-        if (!drag) return;
-        e.preventDefault(); 
-        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-        pX = clientX - sx;
-        pY = clientY - sy;
-        updateP();
+
+    function handleDragMove(event) {
+
+        if (!isDraggingPhoto) {
+            return;
+        }
+
+        event.preventDefault();
+
+
+        const pointerX =
+            event.touches
+                ? event.touches[0].clientX
+                : event.clientX;
+
+        const pointerY =
+            event.touches
+                ? event.touches[0].clientY
+                : event.clientY;
+
+
+        photoX =
+            pointerX - dragStartOffsetX;
+
+        photoY =
+            pointerY - dragStartOffsetY;
+
+
+        updatePhotoTransform();
     }
+
 
     function handleDragEnd() {
-        drag = false;
-        window.removeEventListener('mousemove', handleDragMove);
-        window.removeEventListener('touchmove', handleDragMove, { passive: false });
-        window.removeEventListener('mouseup', handleDragEnd);
-        window.removeEventListener('touchend', handleDragEnd);
+
+        isDraggingPhoto = false;
+
+
+        window.removeEventListener(
+            'mousemove',
+            handleDragMove
+        );
+
+        window.removeEventListener(
+            'touchmove',
+            handleDragMove,
+            { passive: false }
+        );
+
+        window.removeEventListener(
+            'mouseup',
+            handleDragEnd
+        );
+
+        window.removeEventListener(
+            'touchend',
+            handleDragEnd
+        );
     }
 
-    adjImg.addEventListener('mousedown', handleDragStart);
-    adjImg.addEventListener('touchstart', handleDragStart);
 
-    zRange.oninput = e => { pS = e.target.value; updateP(); };
-    function updateP() { adjImg.style.transform = `translate(${pX}px, ${pY}px) scale(${pS})`; }
+    adjustmentImage.addEventListener(
+        'mousedown',
+        handleDragStart
+    );
 
-    function scan() { /* ... unchanged ... */ }
+    adjustmentImage.addEventListener(
+        'touchstart',
+        handleDragStart
+    );
 
-    document.getElementById('share').onclick = () => { /* ... unchanged ... */ };
 
-    document.getElementById('go').onclick = () => {
-        localStorage.setItem('id_final_v14', JSON.stringify({
-            h: document.getElementById('in-h').value, e: document.getElementById('in-e').value,
-            i: document.getElementById('in-i').value, px: pX, py: pY, ps: pS, img: fImg ? fImg.src : null
-        }));
-        ui.classList.add('hidden');
-        
-        cvs.style.zIndex = '2000';
-        cvs.style.pointerEvents = 'auto';
+    // ============================================================
+    // PHOTO ZOOM
+    // ============================================================
 
-        // (FIX) Call the fullscreen function when the button is clicked
+    zoomRange.oninput = event => {
+
+        photoScale = event.target.value;
+
+        updatePhotoTransform();
+    };
+
+
+    // Desktop mouse-wheel zoom
+
+    document
+        .querySelector('.pre-win')
+        .addEventListener(
+            'wheel',
+            event => {
+
+                event.preventDefault();
+
+                photoScale = Math.min(
+                    4,
+                    Math.max(
+                        0.1,
+                        photoScale *
+                        (event.deltaY < 0 ? 1.05 : 0.95)
+                    )
+                );
+
+                zoomRange.value = photoScale;
+
+                updatePhotoTransform();
+            },
+            { passive: false }
+        );
+
+
+    // Mobile pinch-to-zoom
+
+    let pinchDistance = 0;
+
+
+    document
+        .querySelector('.pre-win')
+        .addEventListener(
+            'touchmove',
+            event => {
+
+                if (event.touches.length === 2) {
+
+                    event.preventDefault();
+
+
+                    const currentPinchDistance =
+                        Math.hypot(
+                            event.touches[0].clientX -
+                            event.touches[1].clientX,
+
+                            event.touches[0].clientY -
+                            event.touches[1].clientY
+                        );
+
+
+                    if (pinchDistance) {
+
+                        photoScale = Math.min(
+                            4,
+                            Math.max(
+                                0.1,
+                                photoScale *
+                                (
+                                    currentPinchDistance /
+                                    pinchDistance
+                                )
+                            )
+                        );
+
+                        zoomRange.value = photoScale;
+
+                        updatePhotoTransform();
+                    }
+
+
+                    pinchDistance =
+                        currentPinchDistance;
+                }
+            },
+            { passive: false }
+        );
+
+
+    document
+        .querySelector('.pre-win')
+        .addEventListener(
+            'touchend',
+            () => {
+                pinchDistance = 0;
+            }
+        );
+
+
+    function updatePhotoTransform() {
+
+        adjustmentImage.style.transform =
+            `translate(${photoX}px, ${photoY}px) scale(${photoScale})`;
+    }
+
+
+    // ============================================================
+    // LAUNCH CARD
+    // ============================================================
+
+    launchButton.onclick = () => {
+
+        localStorage.setItem(
+            'id_final_v14',
+            JSON.stringify({
+
+                h: hebrewNameInput.value,
+                e: englishNameInput.value,
+                i: idNumberInput.value,
+
+                d: dateInput.value,
+                t: timeInput.value,
+
+                y: englishYearInput.value,
+                yh: hebrewYearInput.value,
+
+                px: photoX,
+                py: photoY,
+                ps: photoScale,
+
+                img: photoImage
+                    ? photoImage.src
+                    : null
+            })
+        );
+
+
+        userInterface.classList.add('hidden');
+
+        canvas.style.zIndex = '2000';
+        canvas.style.pointerEvents = 'auto';
+
+
         enterFullscreen();
-        
+
         render();
     };
 
-    // This remains as a backup for devices that exit fullscreen
-    cvs.onclick = () => { if(ui.classList.contains('hidden') && !document.fullscreenElement) enterFullscreen(); };
 
-    function render() { draw(); setTimeout(() => requestAnimationFrame(render), 1000); }
+    // If fullscreen exits, clicking the card attempts to restore it.
 
-    function fitText(txt, x, y, maxW, maxH, bold, align, color, fontName = 'sans-serif') { /* ... unchanged ... */ }
-    function draw() { /* ... unchanged ... */ }
+    canvas.onclick = () => {
 
-    // Make sure the unchanged functions are still here
-    function scan() {
-        const tmp = document.createElement('canvas');
-        tmp.width = tImg.width; tmp.height = tImg.height;
-        const tctx = tmp.getContext('2d');
-        tctx.drawImage(tImg, 0, 0);
-        const d = tctx.getImageData(0, 0, tmp.width, tmp.height).data;
-        let found = []; const vis = new Uint8Array(tmp.width * tmp.height);
-        for (let y = 0; y < tmp.height; y += 4) {
-            for (let x = 0; x < tmp.width; x += 4) {
-                if (d[(y * tmp.width + x) * 4 + 3] < 150 && !vis[y * tmp.width + x]) {
-                    let x2 = x, y2 = y;
-                    while (x2 < tmp.width && d[(y * tmp.width + x2) * 4 + 3] < 150) x2++;
-                    while (y2 < tmp.height && d[(y2 * tmp.width + x) * 4 + 3] < 150) y2++;
-                    if (x2-x > 15) {
-                        found.push({x, y, w: x2-x, h: y2-y});
-                        for (let vy = y; vy < y2; vy += 4) for (let vx = x; vx < x2; vx += 4) vis[vy * tmp.width + vx] = 1;
+        if (
+            userInterface.classList.contains('hidden') &&
+            !document.fullscreenElement
+        ) {
+            enterFullscreen();
+        }
+    };
+
+
+    // ============================================================
+    // RENDER LOOP
+    // ============================================================
+
+    function render() {
+
+        drawCard();
+
+        setTimeout(
+            () => requestAnimationFrame(render),
+            1000
+        );
+    }
+
+
+    // ============================================================
+    // ACADEMIC YEAR
+    // ============================================================
+
+    function getAcademicYear() {
+
+        const currentDate = new Date();
+
+        return currentDate.getMonth() >= 8
+            ? `${currentDate.getFullYear()}-${currentDate.getFullYear() + 1}`
+            : `${currentDate.getFullYear() - 1}-${currentDate.getFullYear()}`;
+    }
+
+
+    // ============================================================
+    // HEBREW YEAR
+    // ============================================================
+
+    function convertToHebrewYear(gregorianYear) {
+
+        const ones = [
+            '',
+            'א',
+            'ב',
+            'ג',
+            'ד',
+            'ה',
+            'ו',
+            'ז',
+            'ח',
+            'ט'
+        ];
+
+        const tens = [
+            '',
+            'י',
+            'כ',
+            'ל',
+            'מ',
+            'נ',
+            'ס',
+            'ע',
+            'פ',
+            'צ'
+        ];
+
+        const hundreds = [
+            '',
+            'ק',
+            'ר',
+            'ש',
+            'ת',
+            'תק',
+            'תר',
+            'תש',
+            'תת',
+            'תתק'
+        ];
+
+
+        let remainingYear = gregorianYear;
+
+        const thousands =
+            Math.floor(remainingYear / 1000);
+
+        remainingYear %= 1000;
+
+
+        const hundredDigit =
+            Math.floor(remainingYear / 100);
+
+        remainingYear %= 100;
+
+
+        const tenDigit =
+            Math.floor(remainingYear / 10);
+
+        const oneDigit =
+            remainingYear % 10;
+
+
+        let hebrewYear =
+            (
+                thousands
+                    ? ones[thousands] + '׳'
+                    : ''
+            ) +
+            hundreds[hundredDigit] +
+            tens[tenDigit] +
+            ones[oneDigit];
+
+
+        if (hebrewYear.length > 1) {
+
+            hebrewYear =
+                hebrewYear.slice(0, -1) +
+                '״' +
+                hebrewYear.slice(-1);
+        }
+
+
+        return hebrewYear;
+    }
+
+
+    // ============================================================
+    // TEXT FITTING
+    // ============================================================
+
+    function fitText(
+        text,
+        x,
+        y,
+        maximumWidth,
+        maximumHeight,
+        isBold,
+        textAlignment,
+        textColor,
+        fontFamily = 'sans-serif'
+    ) {
+
+        let fontSize = maximumHeight;
+
+
+        context.textAlign = textAlignment;
+        context.fillStyle = textColor;
+
+        context.font =
+            `${isBold ? 'bold ' : ''}${fontSize}px ${fontFamily}`;
+
+
+        while (
+            context.measureText(text).width > maximumWidth &&
+            fontSize > 8
+        ) {
+
+            fontSize--;
+
+            context.font =
+                `${isBold ? 'bold ' : ''}${fontSize}px ${fontFamily}`;
+        }
+
+
+        context.fillText(
+            text,
+            x,
+            y
+        );
+    }
+
+
+    // ============================================================
+    // DRAW CARD
+    // ============================================================
+
+    function drawCard() {
+
+        const canvasWidth = templateImage.width;
+        const canvasHeight = templateImage.height;
+
+
+        if (canvas.width !== canvasWidth) {
+
+            canvas.width = canvasWidth;
+            canvas.height = canvasHeight;
+        }
+
+
+        context.fillStyle = '#fff';
+
+        context.fillRect(
+            0,
+            0,
+            canvasWidth,
+            canvasHeight
+        );
+
+
+        if (templateBoxes.length < 7) {
+            return;
+        }
+
+
+        const photoBox = templateBoxes[0];
+        const nameBox = templateBoxes[1];
+        const idNumberBox = templateBoxes[2];
+        const academicYearBox = templateBoxes[3];
+        const barcodeIdBox = templateBoxes[4];
+        const timeBox = templateBoxes[5];
+        const dateBox = templateBoxes[6];
+
+
+        const idNumber = idNumberInput.value;
+
+
+        // ========================================================
+        // PHOTO AREA
+        // ========================================================
+
+        if (photoBox) {
+
+            context.fillStyle = '#4b374e';
+
+            context.fillRect(
+                photoBox.x,
+                photoBox.y,
+                photoBox.w,
+                photoBox.h
+            );
+        }
+
+
+        // ========================================================
+        // USER PHOTO
+        // ========================================================
+
+        if (photoImage && photoBox) {
+
+            const photoScaleRatio =
+                photoBox.w / 160;
+
+            const bleedSize = 20;
+
+
+            context.drawImage(
+                photoImage,
+
+                photoBox.x +
+                    (photoX * photoScaleRatio) -
+                    bleedSize,
+
+                photoBox.y +
+                    (photoY * photoScaleRatio) -
+                    bleedSize,
+
+                (photoImage.width *
+                    photoScale *
+                    photoScaleRatio) +
+                    (bleedSize * 2),
+
+                (photoImage.height *
+                    photoScale *
+                    photoScaleRatio) +
+                    (bleedSize * 2)
+            );
+
+        } else if (photoBox) {
+
+            // Default silhouette avatar
+
+            context.save();
+
+            context.beginPath();
+
+            context.rect(
+                photoBox.x,
+                photoBox.y,
+                photoBox.w,
+                photoBox.h
+            );
+
+            context.clip();
+
+
+            const photoCenterX =
+                photoBox.x + photoBox.w / 2;
+
+            const photoCenterY =
+                photoBox.y + photoBox.h / 2;
+
+            const silhouetteRadius =
+                photoBox.w;
+
+
+            context.fillStyle = '#6b5870';
+
+
+            context.beginPath();
+
+            context.arc(
+                photoCenterX,
+                photoCenterY -
+                    silhouetteRadius * 0.22,
+
+                silhouetteRadius * 0.24,
+
+                0,
+                Math.PI * 2
+            );
+
+            context.fill();
+
+
+            context.beginPath();
+
+            context.arc(
+                photoCenterX,
+                photoCenterY +
+                    silhouetteRadius * 0.85,
+
+                silhouetteRadius * 0.48,
+
+                Math.PI,
+                0
+            );
+
+            context.fill();
+
+
+            context.restore();
+        }
+
+
+        // ========================================================
+        // TEXT BACKGROUNDS
+        // ========================================================
+
+        if (nameBox) {
+
+            context.fillStyle = '#4b374e';
+
+            context.fillRect(
+                nameBox.x - 4,
+                nameBox.y - 4,
+                nameBox.w + 8,
+                nameBox.h + 8
+            );
+        }
+
+
+        if (idNumberBox) {
+
+            context.fillStyle = '#4b374e';
+
+            context.fillRect(
+                idNumberBox.x - 4,
+                idNumberBox.y - 4,
+                idNumberBox.w + 8,
+                idNumberBox.h + 8
+            );
+        }
+
+
+        if (barcodeIdBox) {
+
+            context.fillStyle = '#ffffff';
+
+            context.fillRect(
+                barcodeIdBox.x - 4,
+                barcodeIdBox.y - 4,
+                barcodeIdBox.w + 8,
+                barcodeIdBox.h + 8
+            );
+        }
+
+
+        if (timeBox) {
+
+            context.fillStyle = '#ffffff';
+
+            context.fillRect(
+                timeBox.x - 4,
+                timeBox.y - 4,
+                timeBox.w + 8,
+                timeBox.h + 8
+            );
+        }
+
+
+        if (dateBox) {
+
+            context.fillStyle = '#ffffff';
+
+            context.fillRect(
+                dateBox.x - 4,
+                dateBox.y - 4,
+                dateBox.w + 8,
+                dateBox.h + 8
+            );
+        }
+
+
+        // ========================================================
+        // DRAW ORIGINAL TEMPLATE
+        // ========================================================
+
+        context.drawImage(
+            templateImage,
+            0,
+            0,
+            canvasWidth,
+            canvasHeight
+        );
+
+
+        // ========================================================
+        // NAME
+        // ========================================================
+
+        if (nameBox) {
+
+            // Hebrew name
+
+            fitText(
+                hebrewNameInput.value,
+
+                nameBox.x +
+                    nameBox.w * 0.94,
+
+                nameBox.y +
+                    nameBox.h * 0.06,
+
+                nameBox.w * 0.9,
+
+                nameBox.h * 0.38,
+
+                true,
+
+                'right',
+
+                '#fff'
+            );
+
+
+            // English name
+
+            fitText(
+                englishNameInput.value,
+
+                nameBox.x +
+                    nameBox.w * 0.94,
+
+                nameBox.y +
+                    nameBox.h * 0.58,
+
+                nameBox.w * 0.9,
+
+                nameBox.h * 0.38,
+
+                true,
+
+                'right',
+
+                '#fff'
+            );
+        }
+
+
+        // ========================================================
+        // ID NUMBER
+        // ========================================================
+
+        if (idNumberBox) {
+
+            fitText(
+                idNumber,
+
+                idNumberBox.x +
+                    idNumberBox.w * 0.98,
+
+                idNumberBox.y +
+                    idNumberBox.h * 0.50,
+
+                idNumberBox.w * 0.98,
+
+                idNumberBox.h * 0.85,
+
+                true,
+
+                'right',
+
+                '#fff'
+            );
+        }
+
+
+        // ========================================================
+        // ACADEMIC YEAR
+        // ========================================================
+
+        if (academicYearBox) {
+
+            context.fillStyle = '#4b374e';
+
+            context.fillRect(
+                academicYearBox.x - 4,
+                academicYearBox.y - 4,
+                academicYearBox.w + 8,
+                academicYearBox.h + 8
+            );
+
+
+            const hebrewAcademicYear =
+                hebrewYearInput.value.trim() ||
+                convertToHebrewYear(
+                    new Date().getFullYear() + 3761
+                );
+
+
+            const englishAcademicYear =
+                englishYearInput.value.trim() ||
+                getAcademicYear();
+
+
+            context.textBaseline = 'middle';
+
+
+            fitText(
+                hebrewAcademicYear,
+
+                academicYearBox.x +
+                    academicYearBox.w / 2,
+
+                academicYearBox.y +
+                    academicYearBox.h * 0.32,
+
+                academicYearBox.w * 0.9,
+
+                academicYearBox.h * 0.36,
+
+                true,
+
+                'center',
+
+                '#fff'
+            );
+
+
+            fitText(
+                englishAcademicYear,
+
+                academicYearBox.x +
+                    academicYearBox.w / 2,
+
+                academicYearBox.y +
+                    academicYearBox.h * 0.74,
+
+                academicYearBox.w * 0.9,
+
+                academicYearBox.h * 0.36,
+
+                true,
+
+                'center',
+
+                '#fff'
+            );
+        }
+
+
+        // ========================================================
+        // ID UNDER BARCODE
+        // ========================================================
+
+        if (barcodeIdBox) {
+
+            fitText(
+                idNumber,
+
+                barcodeIdBox.x +
+                    barcodeIdBox.w / 2,
+
+                barcodeIdBox.y +
+                    barcodeIdBox.h * 0.55,
+
+                barcodeIdBox.w * 0.99,
+
+                barcodeIdBox.h,
+
+                false,
+
+                'center',
+
+                '#3e3e3e'
+            );
+        }
+
+
+        // ========================================================
+        // TIME
+        // ========================================================
+
+        if (timeBox) {
+
+            const manuallyEnteredTime =
+                timeInput.value.trim();
+
+            const currentTime =
+                manuallyEnteredTime ||
+                new Date().toLocaleTimeString(
+                    'en-GB',
+                    { hour12: false }
+                );
+
+
+            context.textBaseline = 'middle';
+
+
+            fitText(
+                currentTime,
+
+                timeBox.x +
+                    timeBox.w / 2,
+
+                timeBox.y +
+                    timeBox.h / 2,
+
+                timeBox.w * 0.95,
+
+                timeBox.h * 0.95,
+
+                false,
+
+                'center',
+
+                '#4f374f',
+
+                'system-ui, sans-serif'
+            );
+        }
+
+
+        // ========================================================
+        // DATE
+        // ========================================================
+
+        if (dateBox) {
+
+            const manuallyEnteredDate =
+                dateInput.value.trim();
+
+            let displayedDate;
+
+
+            if (manuallyEnteredDate) {
+
+                displayedDate =
+                    manuallyEnteredDate;
+
+            } else {
+
+                const currentDate = new Date();
+
+                const day =
+                    String(
+                        currentDate.getDate()
+                    ).padStart(2, '0');
+
+                const month =
+                    String(
+                        currentDate.getMonth() + 1
+                    ).padStart(2, '0');
+
+                const year =
+                    currentDate.getFullYear();
+
+
+                displayedDate =
+                    `${day}/${month}/${year}`;
+            }
+
+
+            context.textBaseline = 'middle';
+
+
+            fitText(
+                displayedDate,
+
+                dateBox.x +
+                    dateBox.w / 2,
+
+                dateBox.y +
+                    dateBox.h / 2,
+
+                dateBox.w * 0.98,
+
+                dateBox.h * 0.98,
+
+                true,
+
+                'center',
+
+                '#4f374f',
+
+                'system-ui, sans-serif'
+            );
+        }
+    }
+
+
+    // ============================================================
+    // TEMPLATE SCANNER
+    // ============================================================
+
+    function scanTemplate() {
+
+        const scanCanvas =
+            document.createElement('canvas');
+
+        scanCanvas.width =
+            templateImage.width;
+
+        scanCanvas.height =
+            templateImage.height;
+
+
+        const scanContext =
+            scanCanvas.getContext('2d');
+
+
+        scanContext.drawImage(
+            templateImage,
+            0,
+            0
+        );
+
+
+        const pixelData =
+            scanContext.getImageData(
+                0,
+                0,
+                scanCanvas.width,
+                scanCanvas.height
+            ).data;
+
+
+        const detectedBoxes = [];
+
+
+        const visitedPixels =
+            new Uint8Array(
+                scanCanvas.width *
+                scanCanvas.height
+            );
+
+
+        for (
+            let y = 0;
+            y < scanCanvas.height;
+            y += 4
+        ) {
+
+            for (
+                let x = 0;
+                x < scanCanvas.width;
+                x += 4
+            ) {
+
+                const pixelIndex =
+                    (y * scanCanvas.width + x) * 4;
+
+
+                if (
+                    pixelData[pixelIndex + 3] < 150 &&
+                    !visitedPixels[
+                        y * scanCanvas.width + x
+                    ]
+                ) {
+
+                    let rightEdge = x;
+                    let bottomEdge = y;
+
+
+                    while (
+                        rightEdge < scanCanvas.width &&
+                        pixelData[
+                            (y * scanCanvas.width + rightEdge) * 4 + 3
+                        ] < 150
+                    ) {
+                        rightEdge++;
+                    }
+
+
+                    while (
+                        bottomEdge < scanCanvas.height &&
+                        pixelData[
+                            (bottomEdge * scanCanvas.width + x) * 4 + 3
+                        ] < 150
+                    ) {
+                        bottomEdge++;
+                    }
+
+
+                    const detectedWidth =
+                        rightEdge - x;
+
+                    const detectedHeight =
+                        bottomEdge - y;
+
+
+                    if (detectedWidth > 15) {
+
+                        detectedBoxes.push({
+                            x: x,
+                            y: y,
+                            w: detectedWidth,
+                            h: detectedHeight
+                        });
+
+
+                        for (
+                            let visitedY = y;
+                            visitedY < bottomEdge;
+                            visitedY += 4
+                        ) {
+
+                            for (
+                                let visitedX = x;
+                                visitedX < rightEdge;
+                                visitedX += 4
+                            ) {
+
+                                visitedPixels[
+                                    visitedY *
+                                    scanCanvas.width +
+                                    visitedX
+                                ] = 1;
+                            }
+                        }
                     }
                 }
             }
         }
-        found.sort((a,b) => a.x - b.x);
-        boxes = [found.shift(), ...found.sort((a,b) => a.y - b.y)];
-    }
-    document.getElementById('share').onclick = () => {
-        const shareC = document.createElement('canvas');
-        shareC.width = 100; shareC.height = 100;
-        if (fImg) { shareC.getContext('2d').drawImage(fImg, 0, 0, 100, 100); }
-        const tinyBase64 = shareC.toDataURL('image/jpeg', 0.1);
 
-        const url = new URL(window.location.href);
-        url.searchParams.set('h', document.getElementById('in-h').value);
-        url.searchParams.set('e', document.getElementById('in-e').value);
-        url.searchParams.set('i', document.getElementById('in-i').value);
-        url.searchParams.set('px', pX); url.searchParams.set('py', pY); url.searchParams.set('ps', pS);
-        url.searchParams.set('img', tinyBase64);
-        
-        const finalUrl = url.toString();
+
+        detectedBoxes.sort(
+            (firstBox, secondBox) =>
+                firstBox.x - secondBox.x
+        );
+
+
+        templateBoxes = [
+            detectedBoxes.shift(),
+            ...detectedBoxes.sort(
+                (firstBox, secondBox) =>
+                    firstBox.y - secondBox.y
+            )
+        ];
+    }
+
+
+    // ============================================================
+    // SHARE URL
+    // ============================================================
+
+    shareButton.onclick = () => {
+
+        const shareCanvas =
+            document.createElement('canvas');
+
+        shareCanvas.width = 100;
+        shareCanvas.height = 100;
+
+
+        if (photoImage) {
+
+            shareCanvas
+                .getContext('2d')
+                .drawImage(
+                    photoImage,
+                    0,
+                    0,
+                    100,
+                    100
+                );
+        }
+
+
+        const compressedPhoto =
+            shareCanvas.toDataURL(
+                'image/jpeg',
+                0.1
+            );
+
+
+        const shareUrl =
+            new URL(
+                window.location.href
+            );
+
+
+        shareUrl.searchParams.set(
+            'h',
+            hebrewNameInput.value
+        );
+
+        shareUrl.searchParams.set(
+            'e',
+            englishNameInput.value
+        );
+
+        shareUrl.searchParams.set(
+            'i',
+            idNumberInput.value
+        );
+
+        shareUrl.searchParams.set(
+            'd',
+            dateInput.value
+        );
+
+        shareUrl.searchParams.set(
+            't',
+            timeInput.value
+        );
+
+        shareUrl.searchParams.set(
+            'y',
+            englishYearInput.value
+        );
+
+        shareUrl.searchParams.set(
+            'yh',
+            hebrewYearInput.value
+        );
+
+        shareUrl.searchParams.set(
+            'px',
+            photoX
+        );
+
+        shareUrl.searchParams.set(
+            'py',
+            photoY
+        );
+
+        shareUrl.searchParams.set(
+            'ps',
+            photoScale
+        );
+
+        shareUrl.searchParams.set(
+            'img',
+            compressedPhoto
+        );
+
+
+        const finalUrl =
+            shareUrl.toString();
+
+
         if (finalUrl.length > 2000) {
-            alert("Warning: URL is very long. If it doesn't work, try a different photo.");
-        }
 
-        if (navigator.clipboard) navigator.clipboard.writeText(finalUrl).then(() => alert("URL Copied!"));
-        else prompt("Copy this:", finalUrl);
-    };
-    function fitText(txt, x, y, maxW, maxH, bold, align, color, fontName = 'sans-serif') {
-        let s = maxH; ctx.textAlign = align; ctx.fillStyle = color;
-        ctx.font = `${bold ? 'bold ' : ''}${s}px ${fontName}`;
-        while(ctx.measureText(txt).width > maxW && s > 8) {
-            s--; ctx.font = `${bold ? 'bold ' : ''}${s}px ${fontName}`;
-        }
-        ctx.fillText(txt, x, y);
-    }
-    function draw() {
-        const W = tImg.width, H = tImg.height;
-        if (cvs.width !== W) { cvs.width = W; cvs.height = H; }
-        ctx.fillStyle = "#fff"; 
-        ctx.fillRect(0, 0, W, H);
-        
-        const b = boxes; if (b.length < 3) return;
-        const idV = document.getElementById('in-i').value;
-
-        if(b[0]) { 
-            ctx.fillStyle = '#4b374e'; 
-            ctx.fillRect(b[0].x, b[0].y, b[0].w, b[0].h);
-        }
-        
-        if (fImg && b[0]) {
-            const r = b[0].w / 160;
-            const bleedSize = 20;
-            ctx.drawImage(fImg, 
-                b[0].x + (pX * r) - bleedSize, 
-                b[0].y + (pY * r) - bleedSize, 
-                (fImg.width * pS * r) + (bleedSize * 2), 
-                (fImg.height * pS * r) + (bleedSize * 2)
+            alert(
+                "Warning: URL is very long. If it doesn't work, try a different photo."
             );
         }
-        if(b[1]) { ctx.fillStyle='#4b374e'; ctx.fillRect(b[1].x-4, b[1].y-4, b[1].w+8, b[1].h+8); }
-        if(b[2]) { ctx.fillStyle='#4b374e'; ctx.fillRect(b[2].x-4, b[2].y-4, b[2].w+8, b[2].h+8); }
-        if(b[3]) { ctx.fillStyle='#ffffff'; ctx.fillRect(b[3].x-4, b[3].y-4, b[3].w+8, b[3].h+8); }
-        if(b[4]) { ctx.fillStyle='#ffffff'; ctx.fillRect(b[4].x-4, b[4].y-4, b[4].w+8, b[4].h+8); }
-        if(b[5]) { ctx.fillStyle='#ffffff'; ctx.fillRect(b[5].x-4, b[5].y-4, b[5].w+8, b[5].h+8); }
 
-        ctx.drawImage(tImg, 0, 0, W, H);
 
-        if (b[1]) {
-            fitText(document.getElementById('in-h').value, b[1].x + b[1].w * 0.94, b[1].y + (b[1].h * 0.22), b[1].w * 0.9, b[1].h * 0.38, true, 'right', '#fff');
-            fitText(document.getElementById('in-e').value, b[1].x + b[1].w * 0.94, b[1].y + (b[1].h * 0.58), b[1].w * 0.9, b[1].h * 0.38, true, 'right', '#fff');
-        }
-        
-        if (b[2]) {
-            fitText(idV, b[2].x + b[2].w * 0.98, b[2].y + (b[2].h * 0.50), b[2].w * 0.98, b[2].h * 0.85, true, 'right', '#fff');
-        }
+        if (navigator.clipboard) {
 
-        if (b[3]) {
-            fitText(idV, b[3].x + b[3].w/2, b[3].y + (b[3].h * 0.55), b[3].w * 0.99, b[3].h * 1.0, false, 'center', '#3e3e3e');
-        }
+            navigator.clipboard
+                .writeText(finalUrl)
+                .then(
+                    () => alert("URL Copied!")
+                );
 
-        if (b[4]) {
-            const time = new Date().toLocaleTimeString('en-GB', { hour12: false });
-            ctx.textBaseline = 'middle';
-            fitText(time, b[4].x + b[4].w/2, b[4].y + b[4].h/2, b[4].w * 0.95, b[4].h * 0.95, false, 'center', '#4f374f', 'system-ui, sans-serif');
-        }
+        } else {
 
-        if (b[5]) {
-            const now = new Date();
-            const day = String(now.getDate()).padStart(2, '0');
-            const month = String(now.getMonth() + 1).padStart(2, '0');
-            const year = now.getFullYear();
-            const dateStr = `${day}/${month}/${year}`;
-            ctx.textBaseline = 'middle';
-            fitText(dateStr, b[5].x + b[5].w/2, b[5].y + b[5].h/2, b[5].w * 0.98, b[5].h * 0.98, true, 'center', '#4f374f', 'system-ui, sans-serif');
+            prompt(
+                "Copy this:",
+                finalUrl
+            );
         }
-    }
+    };
+
 </script>
+
 </body>
 </html>
